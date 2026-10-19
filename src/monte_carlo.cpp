@@ -24,8 +24,13 @@ McResult mc_price(const Option& option, const Market& m, const McConfig& config)
     const double diffusion = m.vol * std::sqrt(T);
     const double discount = std::exp(-m.rate * T);
 
-    double sum = 0.0;
-    double sum_sq = 0.0;
+    // Welford's online algorithm: updates the mean and the sum of squared
+    // deviations m2 = sum (x_i - mean)^2 at each sample, in O(1) memory and a
+    // single pass. Unlike sum(x^2) - n * mean^2, it never subtracts two large,
+    // nearly equal numbers, so it does not lose precision when the mean is
+    // large compared with the standard deviation.
+    double mean = 0.0;
+    double m2 = 0.0;
     for (std::size_t i = 0; i < num_samples; ++i) {
         const double z = normal(rng);
         double x = discount * payoff(option, m.spot * std::exp(drift + diffusion * z));
@@ -36,14 +41,14 @@ McResult mc_price(const Option& option, const Market& m, const McConfig& config)
             const double x_anti = discount * payoff(option, m.spot * std::exp(drift - diffusion * z));
             x = 0.5 * (x + x_anti);
         }
-        sum += x;
-        sum_sq += x * x;
+        const double delta = x - mean;              // deviation from the old mean
+        mean += delta / static_cast<double>(i + 1);
+        m2 += delta * (x - mean);                   // old deviation * new deviation
     }
 
     // Price = sample mean; std error = sample std deviation / sqrt(N)
     const double n = static_cast<double>(num_samples);
-    const double mean = sum / n;
-    const double variance = (sum_sq - n * mean * mean) / (n - 1.0);
+    const double variance = m2 / (n - 1.0);
     return {mean, std::sqrt(variance / n)};
 }
 

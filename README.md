@@ -18,6 +18,12 @@ The option price is the discounted expected payoff, $V_0 = e^{-rT}\,\mathbb{E}[\
 2. compute $S_T^{(i)}$ and the discounted payoffs $X_i = e^{-rT}\,\text{payoff}(S_T^{(i)})$;
 3. take the price as $\hat V = \frac{1}{N}\sum X_i$, with standard error $\hat\sigma_X / \sqrt{N}$.
 
+The mean and variance are computed on the fly with **Welford's algorithm**, so no sample is stored (O(1) memory, single pass):
+
+$$\delta = x_n - \bar x_{n-1}, \qquad \bar x_n = \bar x_{n-1} + \frac{\delta}{n}, \qquad M_{2,n} = M_{2,n-1} + \delta\,(x_n - \bar x_n), \qquad \hat\sigma^2 = \frac{M_{2,N}}{N-1}$$
+
+Unlike the textbook formula $\frac{1}{N-1}\left(\sum x_i^2 - N\bar x^2\right)$, it never subtracts two large, nearly equal numbers, so it does not lose precision (catastrophic cancellation) when the mean is large compared with the standard deviation.
+
 By the central limit theorem, $\hat V \pm 1.96\,\hat\sigma_X/\sqrt{N}$ is a 95% confidence interval. The error decreases like $1/\sqrt{N}$, so 100× more paths give one more correct digit.
 
 ### Antithetic variates
